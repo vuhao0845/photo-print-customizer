@@ -77,18 +77,10 @@ export default function PhotoCustomizer() {
   const [imageSrc, setImageSrc] = useState(null);
   const [selectedFrame, setSelectedFrame] = useState(allFrames[0] || null);
 
- // 1) STATES cho crop
-const [imageSrc, setImageSrc] = useState(null);
-const [crop, setCrop] = useState({ x: 0, y: 0 });
-const [zoom, setZoom] = useState(1);
-const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
-const [croppedDataUrl, setCroppedDataUrl] = useState(null);
-const [step, setStep] = useState(1);
-
-// 2) Lưu vùng cắt khi người dùng thả chuột
-const onCropComplete = useCallback((_, areaPixels) => {
-  setCroppedAreaPixels(areaPixels);
-}, []);
+// crop
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   // customer data
   const [name, setName] = useState('');
