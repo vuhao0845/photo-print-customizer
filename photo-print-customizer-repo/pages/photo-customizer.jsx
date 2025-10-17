@@ -246,11 +246,25 @@ export default function PhotoCustomizer() {
         pricing: { group, size, quantity, pricePerPic: price, total: price * quantity },
       };
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+     const uploadToWordPress = async (base64Data) => {
+  try {
+    const res = await fetch(process.env.WP_UPLOAD_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: base64Data }),
+    })
+
+    if (!res.ok) throw new Error("Upload failed")
+
+    const data = await res.json()
+    console.log("✅ Ảnh đã gửi thành công:", data)
+    alert("Upload thành công!")
+  } catch (err) {
+    console.error("❌ Lỗi upload:", err)
+    alert("Lỗi khi tải ảnh lên WordPress.")
+  }
+}
+
 
       if (!res.ok) throw new Error('Upload failed');
       await res.json();
