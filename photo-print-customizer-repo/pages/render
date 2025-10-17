@@ -536,9 +536,4 @@ function createImage(url) {
     img.src = url;
   });
 }
-const handleConfirmCrop = async () => {
-  if (!imageSrc || !croppedAreaPixels) return;
-  const dataUrl = await getCroppedImg(imageSrc, croppedAreaPixels);
-  setCroppedDataUrl(dataUrl);
-  setStep(2); // chuyển sang bước tiếp theo (tùy app của bạn)
-};
+
