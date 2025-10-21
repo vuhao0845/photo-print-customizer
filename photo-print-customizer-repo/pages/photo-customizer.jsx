@@ -200,3 +200,100 @@ export default function PhotoCustomizer() {
     </div>
   );
 }
+import React, { useState, useEffect, useCallback } from 'react';
+import Cropper from 'react-easy-crop';
+import { v4 as uuidv4 } from 'uuid';
+
+// Định nghĩa các khung ảnh mặc định
+const builtInFrames = [
+  { id: 'frame-classic', name: 'Classic White', src: '/frames/frame1.png', aspect: 4 / 5 },
+  { id: 'frame-polaroid', name: 'Polaroid', src: '/frames/frame2.png', aspect: 1 },
+  { id: 'frame-instagram', name: 'Instagram Mockup', src: '/frames/frame3.png', aspect: 1.08 },
+];
+
+export default function PhotoCustomizer() {
+  const [imageSrc, setImageSrc] = useState(null);  // Để lưu ảnh người dùng tải lên
+  const [selectedFrame, setSelectedFrame] = useState(builtInFrames[0]);  // Khung mặc định là "Classic White"
+  const [customFrames, setCustomFrames] = useState([]);  // Khung tùy chỉnh người dùng tải lên
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  // Hàm tải ảnh từ file
+  const onSelectFile = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.addEventListener('load', () => setImageSrc(reader.result));
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Hàm tải khung tùy chỉnh
+  const onUploadFrame = (e) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const newFrame = { id: `custom-${uuidv4()}`, name: file.name, src: dataUrl, aspect: 1 };
+      setCustomFrames((s) => [newFrame, ...s]);
+      setSelectedFrame(newFrame);  // Đặt khung mới làm khung đã chọn
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';  // Reset input file
+  };
+
+  // Hàm tạo ảnh cuối sau khi cắt
+  const generateMergedImage = async (outputWidth = 2000) => {
+    if (!imageSrc || !selectedFrame || !croppedAreaPixels) return null;
+    try {
+      const img = new Image();
+      const frameImg = new Image();
+      img.src = imageSrc;
+      frameImg.src = selectedFrame.src;
+      
+      await Promise.all([
+        new Promise((res) => (img.onload = res)),
+        new Promise((res) => (frameImg.onload = res)),
+      ]);
+
+      const canvas = document.createElement('canvas');
+      const aspect = selectedFrame.aspect || (frameImg.width / frameImg.height);
+      const width = outputWidth;
+      const height = Math.max(1, Math.round(outputWidth / aspect));
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, width, height);
+      ctx.drawImage(frameImg, 0, 0, width, height);
+      return canvas.toDataURL('image/png');
+    } catch (err) {
+      console.error('Merge failed', err);
+      return null;
+    }
+  };
+
+  return (
+    <div className="container">
+      <h2>Upload & Chỉnh ảnh</h2>
+      
+      <input type="file" accept="image/*" onChange={onSelectFile} />
+      <input type="file" accept="image/*" onChange={onUploadFrame} />
+      
+      <div>
+        <h3>Chọn khung</h3>
+        <div>
+          {builtInFrames.concat(customFrames).map((frame) => (
+            <div key={frame.id} onClick={() => setSelectedFrame(frame)}>
+              <img src={frame.src} alt={frame.name} />
+              <p>{frame.name}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button onClick={generateMergedImage}>Tạo ảnh cuối</button>
+    </div>
+  );
+}
