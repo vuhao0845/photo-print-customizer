@@ -12,7 +12,7 @@ h2 {
 
 .container {
   max-width: 900px;
-  margin: 0 auto;
+  margin: auto;
   background: #fff;
   padding: 20px;
   border-radius: 12px;
