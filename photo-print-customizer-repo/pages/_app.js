@@ -1,6 +1,6 @@
-import '../styles/globals.css'; // Đảm bảo rằng đường dẫn này chính xác
+// pages/_app.js
+import '@/styles/globals.css';
 
-
-export default function MyApp({ Component, pageProps }) {
+export default function App({ Component, pageProps }) {
   return <Component {...pageProps} />;
 }
