@@ -1,8 +1,16 @@
+/*
+  Photo Print Customizer – Full Version
+  ✅ Upload + chọn khung + crop
+  ✅ Form thông tin khách hàng
+  ✅ Bảng giá động (Màng Sleeve & Ép Plastic)
+  ✅ Gửi đơn đặt in (qua API)
+*/
+
 import React, { useState, useEffect, useCallback } from "react";
 import Cropper from "react-easy-crop";
 import { v4 as uuidv4 } from "uuid";
 
-// BẢNG GIÁ
+// ==== Bảng giá in ảnh ====
 const priceTable = {
   "Màng Sleeve": {
     "5x7": { "<15": 4800, "15-40": 4300, "41-100": 3800, "101-150": 3300, "1000+": 1500 },
@@ -14,146 +22,222 @@ const priceTable = {
     "9x12": { "<15": 8000, "15-40": 7500, "41-100": 7000, "101-150": 6500, "1000+": 3500 },
     "10x15": { "<15": 10000, "15-40": 9000, "41-100": 8000, "101-150": 7500, "1000+": 5000 },
     "13x18": { "<15": 15000, "15-40": 14500, "41-100": 14000, "101-150": 12000, "1000+": 5000 },
-    "15x21": { "<15": 17000, "15-40": 15000, "41-100": 14000, "101-150": 13000, "1000+": 11000 },
-    "21x29 (A4)": { "<15": 20000, "15-40": 18000, "41-100": 17000, "101-150": 15000, "1000+": 5000 },
+    "15x21": { "<15": 17000, "15-40": 16000, "41-100": 14000, "101-150": 13000, "1000+": 11000 },
+    "21x29 (A4)": { "<15": 20000, "15-40": 18000, "41-100": 17000, "101-150": 15500, "1000+": 5000 },
   },
 };
 
-const builtInFrames = [
-  { id: "frame1", name: "Classic White", src: "/frames/frame1.png" },
-  { id: "frame2", name: "Polaroid", src: "/frames/frame2.png" },
-  { id: "frame3", name: "Instagram Mockup", src: "/frames/frame3.png" },
-];
+// ==== Hàm chọn giá phù hợp theo số lượng ====
+function getPrice(category, size, qty) {
+  const data = priceTable[category]?.[size];
+  if (!data) return 0;
+  if (qty < 15) return data["<15"];
+  if (qty <= 40) return data["15-40"];
+  if (qty <= 100) return data["41-100"];
+  if (qty <= 150) return data["101-150"];
+  return data["1000+"];
+}
 
+// ==== Component chính ====
 export default function PhotoCustomizer() {
   const [imageSrc, setImageSrc] = useState(null);
-  const [selectedFrame, setSelectedFrame] = useState(builtInFrames[0]);
-  const [customFrames, setCustomFrames] = useState([]);
+  const [frameSrc, setFrameSrc] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  const [group, setGroup] = useState("Màng Sleeve");
-  const [size, setSize] = useState("5x7");
-  const [quantity, setQuantity] = useState(10);
-
+  // Form khách hàng
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
 
-  // Upload ảnh
+  // Bảng giá
+  const [category, setCategory] = useState("Màng Sleeve");
+  const [size, setSize] = useState("5x7");
+  const [qty, setQty] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    setTotal(qty * getPrice(category, size, qty));
+  }, [category, size, qty]);
+
+  // ==== Upload ảnh ====
   const onSelectFile = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => setImageSrc(reader.result);
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setImageSrc(reader.result);
+    reader.readAsDataURL(file);
   };
 
-  // Upload khung
+  // ==== Upload khung ====
   const onUploadFrame = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const newFrame = { id: uuidv4(), name: file.name, src: reader.result };
-      setCustomFrames((f) => [newFrame, ...f]);
-      setSelectedFrame(newFrame);
-    };
+    reader.onload = () => setFrameSrc(reader.result);
     reader.readAsDataURL(file);
   };
 
-  // Tính giá theo số lượng
-  const getPrice = () => {
-    const data = priceTable[group][size];
-    if (quantity < 15) return data["<15"];
-    if (quantity <= 40) return data["15-40"];
-    if (quantity <= 100) return data["41-100"];
-    if (quantity <= 150) return data["101-150"];
-    return data["1000+"];
+  const onCropComplete = useCallback((_, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  // ==== Merge ảnh + khung ====
+  const generateMergedImage = async () => {
+    if (!imageSrc) return alert("Vui lòng chọn ảnh!");
+    const img = new Image();
+    img.src = imageSrc;
+    await new Promise((res) => (img.onload = res));
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 800;
+    canvas.height = 800;
+    ctx.drawImage(img, 0, 0, 800, 800);
+
+    if (frameSrc) {
+      const frame = new Image();
+      frame.src = frameSrc;
+      await new Promise((res) => (frame.onload = res));
+      ctx.drawImage(frame, 0, 0, 800, 800);
+    }
+    return canvas.toDataURL("image/png");
   };
 
-  const handleSubmit = () => {
-    alert(`Đặt in thành công!\nKhách hàng: ${name}\nSố điện thoại: ${phone}\nGhi chú: ${note}`);
+  // ==== Gửi đơn hàng ====
+  const handleSubmit = async () => {
+    const merged = await generateMergedImage();
+    if (!merged) return;
+
+    const payload = {
+      id: uuidv4(),
+      name,
+      phone,
+      note,
+      category,
+      size,
+      qty,
+      total,
+      image: merged,
+      createdAt: new Date().toISOString(),
+    };
+
+    console.log("📦 Đơn hàng gửi đi:", payload);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) alert("✅ Gửi đơn hàng thành công!");
+      else alert("❌ Lỗi: " + data.error);
+    } catch (err) {
+      alert("Lỗi gửi dữ liệu: " + err.message);
+    }
   };
 
+  // ==== Giao diện ====
   return (
-    <div className="container" style={{ padding: "20px", fontFamily: "sans-serif" }}>
-      <h2>Upload & Chỉnh ảnh</h2>
+    <div className="p-6 bg-gray-50 min-h-screen font-sans">
+      <h2 className="text-2xl font-bold mb-4 text-center">Upload & Chỉnh ảnh</h2>
 
-      <input type="file" accept="image/*" onChange={onSelectFile} />
-      <input type="file" accept="image/*" onChange={onUploadFrame} className="mt-2" />
-
-      <div style={{ display: "flex", gap: "10px", marginTop: "20px", overflowX: "auto" }}>
-        {[...builtInFrames, ...customFrames].map((frame) => (
-          <img
-            key={frame.id}
-            src={frame.src}
-            alt={frame.name}
-            width="100"
-            style={{
-              border: frame.id === selectedFrame.id ? "3px solid blue" : "1px solid #ccc",
-              cursor: "pointer",
-            }}
-            onClick={() => setSelectedFrame(frame)}
-          />
-        ))}
+      <div className="flex flex-col items-center gap-2">
+        <input type="file" accept="image/*" onChange={onSelectFile} />
+        <input type="file" accept="image/png" onChange={onUploadFrame} />
       </div>
 
-      {/* --- FORM KHÁCH HÀNG --- */}
-      <div style={{ marginTop: "30px" }}>
-        <h3>Thông tin khách hàng</h3>
+      {imageSrc && (
+        <div className="my-4 flex justify-center">
+          <Cropper
+            image={imageSrc}
+            crop={crop}
+            zoom={zoom}
+            aspect={1}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
+          />
+        </div>
+      )}
+
+      {/* Form khách hàng */}
+      <div className="max-w-xl mx-auto bg-white p-4 rounded-xl shadow">
+        <h3 className="font-bold text-lg mb-2">Thông tin khách hàng</h3>
         <input
           type="text"
           placeholder="Họ và tên"
+          className="border p-2 w-full mb-2 rounded"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ display: "block", marginBottom: "10px", width: "300px" }}
         />
         <input
-          type="text"
+          type="tel"
           placeholder="Số điện thoại"
+          className="border p-2 w-full mb-2 rounded"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          style={{ display: "block", marginBottom: "10px", width: "300px" }}
         />
         <textarea
           placeholder="Ghi chú"
+          className="border p-2 w-full mb-2 rounded"
+          rows="3"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          style={{ display: "block", marginBottom: "10px", width: "300px", height: "80px" }}
-        />
+        ></textarea>
       </div>
 
-      {/* --- BẢNG GIÁ --- */}
-      <div style={{ marginTop: "30px" }}>
-        <h3>Bảng giá in ảnh</h3>
-        <select value={group} onChange={(e) => setGroup(e.target.value)}>
-          {Object.keys(priceTable).map((g) => (
-            <option key={g}>{g}</option>
-          ))}
-        </select>
-        <select value={size} onChange={(e) => setSize(e.target.value)}>
-          {Object.keys(priceTable[group]).map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min="1"
-          value={quantity}
-          onChange={(e) => setQuantity(parseInt(e.target.value))}
-          style={{ width: "80px", marginLeft: "10px" }}
-        />
-        <p style={{ marginTop: "10px" }}>
-          Giá mỗi ảnh: <b>{getPrice().toLocaleString()} VNĐ</b>
+      {/* Bảng giá */}
+      <div className="max-w-xl mx-auto bg-white mt-6 p-4 rounded-xl shadow">
+        <h3 className="font-bold text-lg mb-2">Bảng giá in ảnh</h3>
+        <div className="flex flex-col gap-2">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="border p-2 rounded"
+          >
+            {Object.keys(priceTable).map((k) => (
+              <option key={k}>{k}</option>
+            ))}
+          </select>
+
+          <select
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+            className="border p-2 rounded"
+          >
+            {Object.keys(priceTable[category]).map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            min="1"
+            value={qty}
+            onChange={(e) => setQty(Number(e.target.value))}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        <p className="mt-3 font-semibold">
+          💰 Giá mỗi ảnh: {getPrice(category, size, qty).toLocaleString()} VNĐ
+        </p>
+        <p className="font-semibold">
+          🧾 Tổng cộng: {total.toLocaleString()} VNĐ
         </p>
       </div>
 
-      <button
-        onClick={handleSubmit}
-        style={{ background: "#0070f3", color: "white", padding: "10px 20px", borderRadius: "6px", marginTop: "20px" }}
-      >
-        Gửi đặt in
-      </button>
+      <div className="text-center mt-6">
+        <button
+          onClick={handleSubmit}
+          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
+        >
+          Gửi đặt in
+        </button>
+      </div>
     </div>
   );
 }
